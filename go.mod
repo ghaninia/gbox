@@ -1,4 +1,4 @@
-module github.com/ghaninia/outbox
+module github.com/ghaninia/gbox
 
 go 1.23.5
 
