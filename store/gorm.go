@@ -8,10 +8,10 @@ import (
 
 type outboxGormRepository struct {
 	instance *gorm.DB
-	setting  Setting
+	setting  RepoSetting
 }
 
-func NewOutboxGormRepository(setting Setting, instance *gorm.DB) IStore {
+func NewOutboxGormRepository(setting RepoSetting, instance *gorm.DB) IRepository {
 	return &outboxGormRepository{
 		instance: instance,
 		setting:  setting,

@@ -2,11 +2,32 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
+
+	"github.com/ghaninia/gbox/dto"
 )
 
-type Setting struct {
+var (
+	defaultSetting = Setting{
+		BatchInsertEnable: true,
+		BatchInsertSize:   100,
+		MessageBufferSize: 1000,
+		TickerTimeout:     5 * time.Second,
+	}
+)
+
+type RepoSetting struct {
 	TableName string
+}
+
+type Setting struct {
+	DriverName        string
+	BatchInsertEnable bool
+	BatchInsertSize   int
+	MessageBufferSize int
+	TickerTimeout     time.Duration
 }
 
 type Outbox struct {
@@ -26,12 +47,136 @@ type OutboxStateEnum string
 
 const (
 	OutboxStatePending    OutboxStateEnum = "PENDING"
-	OutboxStateINPROGRESS OutboxStateEnum = "IN-PROGRESS"
+	OutboxStateInProgress OutboxStateEnum = "IN-PROGRESS"
 	OutboxStateSucceed    OutboxStateEnum = "SUCCEED"
 	OutboxStateFailed     OutboxStateEnum = "FAILED"
 )
 
-type IStore interface {
+type IRepository interface {
 	GetTableName() string
 	NewRecords(ctx context.Context, records []Outbox) error
+}
+
+type IStore interface {
+	Dispatch(context.Context, dto.NewMessage) error
+	Close()
+}
+
+type Store struct {
+	repo        IRepository
+	setting     Setting
+	messageChan chan Outbox
+	stopChan    chan struct{}
+	wg          sync.WaitGroup
+	startOnce   sync.Once
+}
+
+// NewStore creates a new store instance with the provided repository and settings.
+// If no settings are provided, the default settings are used.
+func NewStore(repo IRepository, settings ...Setting) IStore {
+	var s = func() Setting {
+		if len(settings) > 0 {
+			return settings[0]
+		}
+		return defaultSetting
+	}()
+	return &Store{
+		repo:        repo,
+		setting:     s,
+		messageChan: make(chan Outbox, s.MessageBufferSize),
+		stopChan:    make(chan struct{}),
+	}
+}
+
+// Dispatch sends a new message to the store for processing.
+func (s *Store) Dispatch(ctx context.Context, msg dto.NewMessage) error {
+	newMessage := Outbox{
+		Payload:    msg.ToString(),
+		DriverName: s.setting.DriverName,
+		State:      OutboxStatePending,
+		CreatedAt:  time.Now(),
+	}
+
+	// lazy start the message processing loop
+	s.startOnce.Do(func() {
+		s.wg.Add(1)
+		go s.processBatchMessages()
+	})
+
+	select {
+	case s.messageChan <- newMessage:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return s.repo.NewRecords(ctx, []Outbox{newMessage})
+	}
+}
+
+// Close stops the store's message processing loop and closes the message and stop channels.
+func (s *Store) Close() {
+	close(s.stopChan)
+	close(s.messageChan)
+	s.wg.Wait()
+}
+
+// processBatchMessages processes messages in batches.
+func (s *Store) processBatchMessages() {
+	if !s.setting.BatchInsertEnable {
+		return
+	}
+
+	defer s.wg.Done()
+
+	var batch []Outbox
+	batchSize := s.setting.BatchInsertSize
+	tickerTimeout := s.setting.TickerTimeout
+
+	ticker := time.NewTicker(tickerTimeout)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case msg := <-s.messageChan:
+			batch = append(batch, msg)
+
+			if len(batch) >= batchSize {
+				if err := s.saveBatch(batch); err != nil {
+					fmt.Println("Error saving batch:", err)
+				} else {
+					batch = nil
+				}
+			}
+
+		case <-ticker.C:
+			if len(batch) > 0 {
+				if err := s.saveBatch(batch); err != nil {
+					fmt.Println("Error saving batch on timer:", err)
+				} else {
+					batch = nil
+				}
+			}
+
+		case <-s.stopChan:
+			if len(batch) > 0 {
+				if err := s.saveBatch(batch); err != nil {
+					fmt.Println("Error saving remaining batch:", err)
+				}
+			}
+			return
+		}
+	}
+}
+
+// saveBatch saves a batch of messages to the repository.
+func (s *Store) saveBatch(batch []Outbox) error {
+	ctx, cancel := context.WithTimeout(context.Background(), s.setting.TickerTimeout)
+	defer cancel()
+
+	err := s.repo.NewRecords(ctx, batch)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

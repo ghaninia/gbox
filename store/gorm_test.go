@@ -9,8 +9,8 @@ import (
 )
 
 // newDBGormInstance returns a new instance of GormStore.
-func newDBGormInstance() (IStore, error) {
-	return NewOutboxGormRepository(Setting{
+func newDBGormInstance() (IRepository, error) {
+	return NewOutboxGormRepository(RepoSetting{
 		TableName: "outbox",
 	}, gormClient), nil
 }

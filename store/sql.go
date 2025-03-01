@@ -8,10 +8,10 @@ import (
 
 type outboxSqlRepository struct {
 	instance *sql.DB
-	setting  Setting
+	setting  RepoSetting
 }
 
-func NewOutboxSqlRepository(setting Setting, instance *sql.DB) IStore {
+func NewOutboxSqlRepository(setting RepoSetting, instance *sql.DB) IRepository {
 	return &outboxSqlRepository{
 		instance: instance,
 		setting:  setting,

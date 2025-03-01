@@ -9,8 +9,8 @@ import (
 )
 
 // newDBSqlInstance returns a new instance of OutboxSqlRepository.
-func newDBSqlInstance() (IStore, error) {
-	return NewOutboxSqlRepository(Setting{
+func newDBSqlInstance() (IRepository, error) {
+	return NewOutboxSqlRepository(RepoSetting{
 		TableName: "outbox",
 	}, sqlClient), nil
 }
@@ -42,7 +42,7 @@ func TestOutboxSqlRepository_NewRecords(t *testing.T) {
 			ID:         1,
 			Payload:    `{"name": "John Doe"}`,
 			DriverName: "grpc",
-			State:      OutboxStateINPROGRESS,
+			State:      OutboxStateInProgress,
 			CreatedAt:  time.Now(),
 		}, {
 			ID:         2,

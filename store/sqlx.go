@@ -9,10 +9,10 @@ import (
 
 type outboxSqlxRepository struct {
 	instance *sqlx.DB
-	setting  Setting
+	setting  RepoSetting
 }
 
-func NewOutboxSqlxRepository(setting Setting, instance *sqlx.DB) IStore {
+func NewOutboxSqlxRepository(setting RepoSetting, instance *sqlx.DB) IRepository {
 	return &outboxSqlxRepository{
 		instance: instance,
 		setting:  setting,

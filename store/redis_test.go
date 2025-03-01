@@ -8,8 +8,8 @@ import (
 )
 
 // newOutboxRedisRepoInstance returns a new instance of RedisStore.
-func newOutboxRedisRepoInstance() (IStore, error) {
-	return NewOutboxRedisRepository(Setting{
+func newOutboxRedisRepoInstance() (IRepository, error) {
+	return NewOutboxRedisRepository(RepoSetting{
 		TableName: "outbox",
 	}, redisClient), nil
 }
@@ -49,7 +49,7 @@ func TestNewOutboxRedisRepository(t *testing.T) {
 		return
 	}
 
-	repo := NewOutboxRedisRepository(Setting{
+	repo := NewOutboxRedisRepository(RepoSetting{
 		TableName: "outbox",
 	}, client)
 

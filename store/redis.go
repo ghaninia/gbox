@@ -13,10 +13,10 @@ const (
 
 type outboxRedisRepository struct {
 	instance *redis.Client
-	setting  Setting
+	setting  RepoSetting
 }
 
-func NewOutboxRedisRepository(setting Setting, instance *redis.Client) IStore {
+func NewOutboxRedisRepository(setting RepoSetting, instance *redis.Client) IRepository {
 	return &outboxRedisRepository{
 		instance: instance,
 		setting:  setting,

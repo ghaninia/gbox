@@ -9,8 +9,8 @@ import (
 )
 
 // newOutboxRedisRepoInstance returns a new instance of RedisStore.
-func newDBSqlxInstance() (IStore, error) {
-	return NewOutboxSqlxRepository(Setting{
+func newDBSqlxInstance() (IRepository, error) {
+	return NewOutboxSqlxRepository(RepoSetting{
 		TableName: "outbox",
 	}, sqlxClient), nil
 }
@@ -42,7 +42,7 @@ func TestOutboxSqlxRepository_NewRecords(t *testing.T) {
 			ID:         1,
 			Payload:    `{"name": "John Doe"}`,
 			DriverName: "grpc",
-			State:      OutboxStateINPROGRESS,
+			State:      OutboxStateInProgress,
 			CreatedAt:  time.Now(),
 		}, {
 			ID:         2,
