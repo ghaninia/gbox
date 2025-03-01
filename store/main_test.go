@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log"
 	"net/url"
@@ -24,6 +25,7 @@ import (
 
 var (
 	onceDB     sync.Once
+	sqlClient  *sql.DB
 	sqlxClient *sqlx.DB
 	gormClient *gorm.DB
 )
@@ -66,7 +68,7 @@ func freshTables() []string {
 }
 
 // newDBTestContainerClient returns a new instance of SQLX and GORM clients.
-func newDBTestContainerClient() (_ *sqlx.DB, _ *gorm.DB, err error) {
+func newDBTestContainerClient() (_ *sql.DB, _ *sqlx.DB, _ *gorm.DB, err error) {
 	onceDB.Do(func() {
 		var (
 			ctx              = context.Background()
@@ -107,12 +109,16 @@ func newDBTestContainerClient() (_ *sqlx.DB, _ *gorm.DB, err error) {
 		gormClient, err = gorm.Open(
 			postgres.Open(connectionString), &gorm.Config{},
 		)
+		if err != nil {
+			return
+		}
 
+		sqlClient, err = sql.Open("postgres", connectionString)
 		if err != nil {
 			return
 		}
 	})
-	return sqlxClient, gormClient, nil
+	return sqlClient, sqlxClient, gormClient, nil
 }
 
 // newRedisTestContainerClient returns a new instance of Redis client.
@@ -170,15 +176,15 @@ func newRedisTestContainerClient() (_ *redis.Client, err error) {
 // TestMain is the entry point for the test suite.
 func TestMain(m *testing.M) {
 
-	log.Printf("starting [store folder] test suite ...")
+	log.Printf("starting [intergration test] ...")
 
-	sqlxClient, gormClient, err := newDBTestContainerClient()
+	sqlClient, sqlxClient, gormClient, err := newDBTestContainerClient()
 	if err != nil {
 		panic(errors.Join(err, errors.New("failed to create a new instance of SQLX and GORM clients")))
 	}
 
-	if sqlxClient == nil || gormClient == nil {
-		panic("sqlxClient or gormClient is nil")
+	if sqlClient == nil || sqlxClient == nil || gormClient == nil {
+		panic("sqlClient, sqlxClient, or gormClient is nil")
 	}
 
 	// Run the migrations for the test suite
@@ -186,7 +192,7 @@ func TestMain(m *testing.M) {
 	seeders = append(seeders, downSeeder()...)
 	seeders = append(seeders, upSeeder()...)
 	for _, statement := range seeders {
-		if _, err := sqlxClient.Exec(statement); err != nil {
+		if _, err := sqlClient.Exec(statement); err != nil {
 			panic(errors.Join(err, errors.New("failed to run the migration")))
 		}
 	}
@@ -202,7 +208,7 @@ func TestMain(m *testing.M) {
 
 	m.Run()
 
-	log.Printf("stopping [store folder] test suite ...")
+	log.Printf("stopping [intergration test] ...")
 }
 
 // You can use testing.T, if you want to test the code without benchmarking
@@ -215,7 +221,7 @@ func setupSuite(tb testing.TB) func(tb testing.TB) {
 		var seeders []string
 		seeders = append(seeders, freshTables()...)
 		for _, statement := range seeders {
-			if _, err := sqlxClient.Exec(statement); err != nil {
+			if _, err := sqlClient.Exec(statement); err != nil {
 				tb.Fatalf("failed to run the migration: %v", err)
 			}
 		}

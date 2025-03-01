@@ -8,30 +8,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// newOutboxRedisRepoInstance returns a new instance of RedisStore.
-func newDBSqlxInstance() (IStore, error) {
-	return NewOutboxSqlxRepository(Setting{
+// newDBSqlInstance returns a new instance of OutboxSqlRepository.
+func newDBSqlInstance() (IStore, error) {
+	return NewOutboxSqlRepository(Setting{
 		TableName: "outbox",
-	}, sqlxClient), nil
+	}, sqlClient), nil
 }
 
-// TestOutboxSqlxRepository_GetTableName tests the OutboxSqlxRepository.
-func TestOutboxSqlxRepository_GetTableName(t *testing.T) {
-	repo, err := newDBSqlxInstance()
+// TestOutboxSqlRepository_GetTableName tests the GetTableName method of OutboxSqlRepository.
+func TestOutboxSqlRepository_GetTableName(t *testing.T) {
+	repo, err := newDBSqlInstance()
 	if err != nil {
-		assert.NoErrorf(t, err, "error creating new instance of OutboxSqlxRepository")
+		assert.NoErrorf(t, err, "error creating new instance of OutboxSqlRepository")
 		return
 	}
 	assert.Equalf(t, repo.GetTableName(), "outbox", "table name should be outbox")
 }
 
-// TestOutboxSqlxRepository_NewRecords tests the method NewRecords of OutboxSqlxRepository.
-func TestOutboxSqlxRepository_NewRecords(t *testing.T) {
+// TestOutboxSqlRepository_NewRecords tests the method NewRecords of OutboxSqlxRepository.
+func TestOutboxSqlRepository_NewRecords(t *testing.T) {
 
 	tearDownSuite := setupSuite(t)
 	defer tearDownSuite(t)
 
-	repo, err := newDBSqlxInstance()
+	repo, err := newDBSqlInstance()
 	if err != nil {
 		assert.NoErrorf(t, err, "error creating new instance of OutboxSqlxRepository")
 		return
