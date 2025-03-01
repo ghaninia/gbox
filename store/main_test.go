@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/url"
 	"strings"
@@ -32,8 +33,8 @@ var (
 	onceRedis   sync.Once
 )
 
-// seeders returns the SQL queries to seed the database.
-func seeders() []string {
+// seeders returns the list of seeders
+func upSeeder() []string {
 	return []string{
 		`CREATE TABLE outbox (
 			id SERIAL PRIMARY KEY,
@@ -47,6 +48,20 @@ func seeders() []string {
 			number_of_attempts INTEGER,
 			error TEXT
 		);`,
+	}
+}
+
+// seeders returns the list of seeders
+func downSeeder() []string {
+	return []string{
+		"DROP TABLE IF EXISTS outbox;",
+	}
+}
+
+// freshTables returns the list of tables to be truncated
+func freshTables() []string {
+	return []string{
+		`DELETE FROM outbox;`,
 	}
 }
 
@@ -87,13 +102,6 @@ func newDBTestContainerClient() (_ *sqlx.DB, _ *gorm.DB, err error) {
 		sqlxClient, err = sqlx.Open("postgres", connectionString)
 		if err != nil {
 			return
-		}
-
-		for _, query := range seeders() {
-			_, err = sqlxClient.Exec(query)
-			if err != nil {
-				return
-			}
 		}
 
 		gormClient, err = gorm.Open(
@@ -166,16 +174,26 @@ func TestMain(m *testing.M) {
 
 	sqlxClient, gormClient, err := newDBTestContainerClient()
 	if err != nil {
-		panic(err)
+		panic(errors.Join(err, errors.New("failed to create a new instance of SQLX and GORM clients")))
 	}
 
 	if sqlxClient == nil || gormClient == nil {
 		panic("sqlxClient or gormClient is nil")
 	}
 
+	// Run the migrations for the test suite
+	var seeders = []string{}
+	seeders = append(seeders, downSeeder()...)
+	seeders = append(seeders, upSeeder()...)
+	for _, statement := range seeders {
+		if _, err := sqlxClient.Exec(statement); err != nil {
+			panic(errors.Join(err, errors.New("failed to run the migration")))
+		}
+	}
+
 	redisClient, err = newRedisTestContainerClient()
 	if err != nil {
-		panic(err)
+		panic(errors.Join(err, errors.New("failed to create a new instance of Redis client")))
 	}
 
 	if redisClient == nil {
@@ -185,4 +203,21 @@ func TestMain(m *testing.M) {
 	m.Run()
 
 	log.Printf("stopping [store folder] test suite ...")
+}
+
+// You can use testing.T, if you want to test the code without benchmarking
+func setupSuite(tb testing.TB) func(tb testing.TB) {
+	// Run the migrations for the test suite
+
+	// Return a function to teardown the test
+	return func(tb testing.TB) {
+		// fresh the tables after the test
+		var seeders []string
+		seeders = append(seeders, freshTables()...)
+		for _, statement := range seeders {
+			if _, err := sqlxClient.Exec(statement); err != nil {
+				tb.Fatalf("failed to run the migration: %v", err)
+			}
+		}
+	}
 }

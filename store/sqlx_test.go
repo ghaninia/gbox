@@ -14,7 +14,7 @@ func newDBSqlxInstance() (IStore, error) {
 	}, sqlxClient), nil
 }
 
-// TestOutboxSqlxRepository tests the OutboxSqlxRepository.
+// TestOutboxSqlxRepository_GetTableName tests the OutboxSqlxRepository.
 func TestOutboxSqlxRepository_GetTableName(t *testing.T) {
 	repo, err := newDBSqlxInstance()
 	if err != nil {
@@ -24,7 +24,12 @@ func TestOutboxSqlxRepository_GetTableName(t *testing.T) {
 	assert.Equalf(t, repo.GetTableName(), "outbox", "table name should be outbox")
 }
 
+// TestOutboxSqlxRepository_NewRecords tests the method NewRecords of OutboxSqlxRepository.
 func TestOutboxSqlxRepository_NewRecords(t *testing.T) {
+
+	tearDownSuite := setupSuite(t)
+	defer tearDownSuite(t)
+
 	repo, err := newDBSqlxInstance()
 	if err != nil {
 		assert.NoErrorf(t, err, "error creating new instance of OutboxSqlxRepository")

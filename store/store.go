@@ -11,7 +11,7 @@ type Setting struct {
 
 type Outbox struct {
 	ID               int64           `gorm:"id" db:"id" json:"id"`
-	Payload          any             `gorm:"payload" db:"payload" json:"payload"`
+	Payload          string          `gorm:"payload" db:"payload" json:"payload"`
 	DriverName       string          `gorm:"driver_name" db:"driver_name" json:"driver_name"`
 	State            OutboxStateEnum `gorm:"state" db:"state" json:"state"`
 	CreatedAt        time.Time       `gorm:"created_at" db:"created_at" json:"created_at"`
