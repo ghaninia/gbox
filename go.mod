@@ -4,7 +4,7 @@ go 1.23.5
 
 require (
 	github.com/redis/go-redis/v9 v9.7.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.35.0
 	gorm.io/gorm v1.25.12
 )
@@ -56,6 +56,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.12 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/testcontainers/testcontainers-go v0.35.0 // indirect
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.35.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
