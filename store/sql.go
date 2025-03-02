@@ -29,7 +29,7 @@ func (o outboxSqlRepository) NewRecords(ctx context.Context, records []Outbox) e
 		return err
 	}
 
-	statement := fmt.Sprintf("INSERT INTO %s (id, payload, driver_name, state, created_at, locked_at, locked_by, last_attempted_at, number_of_attempts, error) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", o.GetTableName())
+	statement := fmt.Sprintf("INSERT INTO %s (payload, driver_name, state, created_at, locked_at, locked_by, last_attempted_at, number_of_attempts, error) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)", o.GetTableName())
 	stmt, err := tx.PrepareContext(ctx, statement)
 
 	if err != nil {
@@ -39,7 +39,6 @@ func (o outboxSqlRepository) NewRecords(ctx context.Context, records []Outbox) e
 	for _, record := range records {
 		if _, err = stmt.ExecContext(
 			ctx,
-			record.ID,
 			record.Payload,
 			record.DriverName,
 			record.State,

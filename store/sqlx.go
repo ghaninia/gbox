@@ -27,7 +27,7 @@ func (o outboxSqlxRepository) GetTableName() string {
 // NewRecords insert new records to outbox table
 func (o outboxSqlxRepository) NewRecords(ctx context.Context, records []Outbox) error {
 
-	query := fmt.Sprintf(`INSERT INTO %s (id, payload, driver_name, state,created_at , locked_at, locked_by, last_attempted_at, number_of_attempts, error) VALUES (:id, :payload, :driver_name, :state, :created_at, :locked_at, :locked_by, :last_attempted_at, :number_of_attempts, :error)`, o.GetTableName())
+	query := fmt.Sprintf(`INSERT INTO %s (payload, driver_name, state,created_at , locked_at, locked_by, last_attempted_at, number_of_attempts, error) VALUES (:payload, :driver_name, :state, :created_at, :locked_at, :locked_by, :last_attempted_at, :number_of_attempts, :error)`, o.GetTableName())
 
 	if _, err := o.instance.NamedExecContext(ctx, query, records); err != nil {
 		return err

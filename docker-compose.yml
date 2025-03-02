@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16.2
+    container_name: gbox_db
+    restart: always
+    command: "postgres -c 'max_connections=550'"
+    environment:
+      TZ: "Asia/Tehran"
+      POSTGRES_USER: gbox
+      POSTGRES_PASSWORD: gbox
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - gbox_db:/var/lib/postgresql/data
+
+volumes:
+  gbox_db:

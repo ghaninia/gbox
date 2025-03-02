@@ -23,6 +23,7 @@ type RepoSetting struct {
 }
 
 type Setting struct {
+	NodeID            int
 	DriverName        string
 	BatchInsertEnable bool
 	BatchInsertSize   int
@@ -90,6 +91,7 @@ func NewStore(repo IRepository, settings ...Setting) IStore {
 
 // Dispatch sends a new message to the store for processing.
 func (s *Store) Dispatch(ctx context.Context, msg dto.NewMessage) error {
+
 	newMessage := Outbox{
 		Payload:    msg.ToString(),
 		DriverName: s.setting.DriverName,
@@ -100,7 +102,7 @@ func (s *Store) Dispatch(ctx context.Context, msg dto.NewMessage) error {
 	// lazy start the message processing loop
 	s.startOnce.Do(func() {
 		s.wg.Add(1)
-		go s.processBatchMessages()
+		go s.processBatchMessages(ctx)
 	})
 
 	select {
@@ -121,12 +123,12 @@ func (s *Store) Close() {
 }
 
 // processBatchMessages processes messages in batches.
-func (s *Store) processBatchMessages() {
+func (s *Store) processBatchMessages(ctx context.Context) {
+	defer s.wg.Done()
+
 	if !s.setting.BatchInsertEnable {
 		return
 	}
-
-	defer s.wg.Done()
 
 	var batch []Outbox
 	batchSize := s.setting.BatchInsertSize
@@ -139,9 +141,8 @@ func (s *Store) processBatchMessages() {
 		select {
 		case msg := <-s.messageChan:
 			batch = append(batch, msg)
-
 			if len(batch) >= batchSize {
-				if err := s.saveBatch(batch); err != nil {
+				if err := s.saveBatch(ctx, batch); err != nil {
 					fmt.Println("Error saving batch:", err)
 				} else {
 					batch = nil
@@ -150,7 +151,7 @@ func (s *Store) processBatchMessages() {
 
 		case <-ticker.C:
 			if len(batch) > 0 {
-				if err := s.saveBatch(batch); err != nil {
+				if err := s.saveBatch(ctx, batch); err != nil {
 					fmt.Println("Error saving batch on timer:", err)
 				} else {
 					batch = nil
@@ -159,7 +160,7 @@ func (s *Store) processBatchMessages() {
 
 		case <-s.stopChan:
 			if len(batch) > 0 {
-				if err := s.saveBatch(batch); err != nil {
+				if err := s.saveBatch(ctx, batch); err != nil {
 					fmt.Println("Error saving remaining batch:", err)
 				}
 			}
@@ -169,10 +170,7 @@ func (s *Store) processBatchMessages() {
 }
 
 // saveBatch saves a batch of messages to the repository.
-func (s *Store) saveBatch(batch []Outbox) error {
-	ctx, cancel := context.WithTimeout(context.Background(), s.setting.TickerTimeout)
-	defer cancel()
-
+func (s *Store) saveBatch(ctx context.Context, batch []Outbox) error {
 	err := s.repo.NewRecords(ctx, batch)
 	if err != nil {
 		return err
