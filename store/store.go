@@ -58,17 +58,17 @@ type IRepository interface {
 }
 
 type IStore interface {
-	Dispatch(context.Context, dto.NewMessage) error
+	Dispatch(ctx context.Context, msg dto.NewMessage) error
 	Close()
 }
 
 type Store struct {
-	repo        IRepository
 	setting     Setting
-	messageChan chan Outbox
-	stopChan    chan struct{}
+	repo        IRepository
 	wg          sync.WaitGroup
 	startOnce   sync.Once
+	messageChan chan Outbox
+	stopChan    chan struct{}
 }
 
 // NewStore creates a new store instance with the provided repository and settings.
