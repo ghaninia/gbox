@@ -10,7 +10,9 @@ import (
 )
 
 var (
-	defaultSetting = Setting{}
+	defaultSetting = Setting{
+		BackoffDelay: 5 * time.Millisecond,
+	}
 )
 
 type RepoSetting struct {
@@ -18,10 +20,13 @@ type RepoSetting struct {
 }
 
 type Setting struct {
-	NodeID         int
-	DriverName     string
-	MaxBatchSize   int
-	IntervalTicker time.Duration
+	NodeID            int
+	DriverName        string
+	MaxBatchSize      int
+	IntervalTicker    time.Duration
+	BackoffEnabled    bool
+	BackoffMaxRetries int
+	BackoffDelay      time.Duration
 }
 
 type IRepository interface {
@@ -88,17 +93,25 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 }
 
 // saveMessages saves the messages in the outbox store.
-func (s *Store) saveMessages(ctx context.Context, messages []dto.Outbox) error {
+func (s *Store) saveMessages(ctx context.Context, messages []dto.Outbox) (err error) {
 	if s.beforeSaveBatch != nil {
-		if err := s.beforeSaveBatch(ctx, messages); err != nil {
+		if err = s.beforeSaveBatch(ctx, messages); err != nil {
 			return err
 		}
 	}
-	if err := s.repo.NewRecords(ctx, messages); err != nil {
-		return err
+	if err = s.repo.NewRecords(ctx, messages); err != nil {
+		if !s.setting.BackoffEnabled {
+			return err
+		}
+		for i := 0; i < s.setting.BackoffMaxRetries; i++ {
+			time.Sleep(s.setting.BackoffDelay)
+			if err = s.repo.NewRecords(ctx, messages); err == nil {
+				break
+			}
+		}
 	}
 	if s.afterSaveBatch != nil {
-		if err := s.afterSaveBatch(ctx, messages); err != nil {
+		if err = s.afterSaveBatch(ctx, messages); err != nil {
 			return err
 		}
 	}
