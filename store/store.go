@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"golang.org/x/sync/errgroup"
 	"math/rand"
 	"sync"
 	"time"
@@ -67,7 +66,10 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 	defer s.muMessages.Unlock()
 
 	for _, msg := range messages {
+
+		// TODO: added snowflakeID generation logic
 		var snowflakeID int64 = rand.Int63()
+
 		outboxMessage := msg.ToOutBox(snowflakeID, driverName)
 		s.messages = append(s.messages, outboxMessage)
 
@@ -109,46 +111,39 @@ func (s *Store) saveMessages(ctx context.Context, messages []dto.Outbox) error {
 // If the context is done, it saves any remaining messages before stopping the ticker.
 func (s *Store) AutoCommit(ctx context.Context) error {
 	s.ticker = time.NewTicker(s.setting.IntervalTicker)
-
-	group, ctx := errgroup.WithContext(ctx)
-
-	group.Go(func() error {
-		for {
-			select {
-			case _ = <-ctx.Done():
-				{
-					s.muMessages.Lock()
-					if err := s.saveMessages(ctx, s.messages); err != nil {
-						s.muMessages.Unlock()
-						return err
-					}
-
-					// reset messages after saving
-					s.messages = []dto.Outbox{}
+	for {
+		select {
+		case _ = <-ctx.Done():
+			{
+				s.muMessages.Lock()
+				if err := s.saveMessages(ctx, s.messages); err != nil {
 					s.muMessages.Unlock()
-					s.ticker.Stop()
-					return nil
+					return err
 				}
-			case _ = <-s.ticker.C:
-				{
-					s.muMessages.Lock()
-					if len(s.messages) == 0 {
-						s.muMessages.Unlock()
-						continue
-					}
 
-					if err := s.saveMessages(ctx, s.messages); err != nil {
-						s.muMessages.Unlock()
-						return err
-					}
-
-					// reset messages after saving
-					s.messages = []dto.Outbox{}
+				// reset messages after saving
+				s.messages = []dto.Outbox{}
+				s.muMessages.Unlock()
+				s.ticker.Stop()
+				return nil
+			}
+		case _ = <-s.ticker.C:
+			{
+				s.muMessages.Lock()
+				if len(s.messages) == 0 {
 					s.muMessages.Unlock()
+					continue
 				}
+
+				if err := s.saveMessages(ctx, s.messages); err != nil {
+					s.muMessages.Unlock()
+					return err
+				}
+
+				// reset messages after saving
+				s.messages = []dto.Outbox{}
+				s.muMessages.Unlock()
 			}
 		}
-	})
-
-	return group.Wait()
+	}
 }
