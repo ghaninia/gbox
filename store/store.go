@@ -21,7 +21,7 @@ type RepoSetting struct {
 type Setting struct {
 	NodeID         int
 	DriverName     string
-	BulkSize       int
+	MaxBatchSize   int
 	IntervalTicker time.Duration
 }
 
@@ -72,7 +72,7 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 		s.messages = append(s.messages, outboxMessage)
 
 		// check if the number of messages has reached the bulk size
-		if len(s.messages) >= s.setting.BulkSize {
+		if len(s.messages) >= s.setting.MaxBatchSize {
 			if err := s.saveMessages(ctx, s.messages); err != nil {
 				return err
 			}

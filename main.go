@@ -30,7 +30,7 @@ func main() {
 	settings := store.Setting{
 		NodeID:         1,
 		DriverName:     "message_broker",
-		BulkSize:       5,
+		MaxBatchSize:   5,
 		IntervalTicker: 1 * time.Minute,
 	}
 
