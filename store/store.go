@@ -125,6 +125,8 @@ func (s *Store) AutoCommit(ctx context.Context) error {
 						s.muMessages.Unlock()
 						return err
 					}
+
+					// reset messages after saving
 					s.messages = []dto.Outbox{}
 					s.muMessages.Unlock()
 					s.ticker.Stop()

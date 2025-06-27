@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"github.com/ghaninia/gbox/dto"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -25,7 +26,7 @@ func (o outboxSqlxRepository) GetTableName() string {
 }
 
 // NewRecords insert new records to outbox table
-func (o outboxSqlxRepository) NewRecords(ctx context.Context, records []Outbox) error {
+func (o outboxSqlxRepository) NewRecords(ctx context.Context, records []dto.Outbox) error {
 
 	query := fmt.Sprintf(`INSERT INTO %s (payload, driver_name, state,created_at , locked_at, locked_by, last_attempted_at, number_of_attempts, error) VALUES (:payload, :driver_name, :state, :created_at, :locked_at, :locked_by, :last_attempted_at, :number_of_attempts, :error)`, o.GetTableName())
 
