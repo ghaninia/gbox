@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/ghaninia/gbox/dto"
 	"testing"
 	"time"
 
@@ -37,12 +38,12 @@ func TestOutboxGormRepository_NewRecords(t *testing.T) {
 		return
 	}
 
-	records := []Outbox{
+	records := []dto.Outbox{
 		{
 			ID:         1,
 			Payload:    "{'key': 'value'}",
 			DriverName: "driver_name",
-			State:      OutboxStatePending,
+			State:      dto.OutboxStatePending,
 			CreatedAt:  time.Now(),
 		},
 	}

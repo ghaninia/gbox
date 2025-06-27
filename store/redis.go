@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"github.com/ghaninia/gbox/dto"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -29,7 +30,7 @@ func (o outboxRedisRepository) GetTableName() string {
 }
 
 // NewRecords insert new records to outbox table
-func (o outboxRedisRepository) NewRecords(ctx context.Context, records []Outbox) error {
+func (o outboxRedisRepository) NewRecords(ctx context.Context, records []dto.Outbox) error {
 
 	// Start transaction to insert multiple records
 	if _, err := o.instance.TxPipelined(ctx, func(pipe redis.Pipeliner) error {

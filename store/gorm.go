@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/ghaninia/gbox/dto"
 
 	"gorm.io/gorm"
 )
@@ -24,7 +25,7 @@ func (o outboxGormRepository) GetTableName() string {
 }
 
 // NewRecords insert new records to outbox table
-func (o outboxGormRepository) NewRecords(ctx context.Context, records []Outbox) error {
+func (o outboxGormRepository) NewRecords(ctx context.Context, records []dto.Outbox) error {
 	return o.instance.WithContext(ctx).
 		Table(o.GetTableName()).
 		Create(records).Error

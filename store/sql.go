@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/ghaninia/gbox/dto"
 )
 
 type outboxSqlRepository struct {
@@ -22,7 +23,7 @@ func (o outboxSqlRepository) GetTableName() string {
 	return o.setting.TableName
 }
 
-func (o outboxSqlRepository) NewRecords(ctx context.Context, records []Outbox) error {
+func (o outboxSqlRepository) NewRecords(ctx context.Context, records []dto.Outbox) error {
 
 	tx, err := o.instance.Begin()
 	if err != nil {

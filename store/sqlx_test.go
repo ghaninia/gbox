@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/ghaninia/gbox/dto"
 	"testing"
 	"time"
 
@@ -37,24 +38,24 @@ func TestOutboxSqlxRepository_NewRecords(t *testing.T) {
 		return
 	}
 
-	records := []Outbox{
+	records := []dto.Outbox{
 		{
 			ID:         1,
 			Payload:    `{"name": "John Doe"}`,
 			DriverName: "grpc",
-			State:      OutboxStateInProgress,
+			State:      dto.OutboxStateInProgress,
 			CreatedAt:  time.Now(),
 		}, {
 			ID:         2,
 			Payload:    `{"name": "Jane Doe"}`,
 			DriverName: "http",
-			State:      OutboxStatePending,
+			State:      dto.OutboxStatePending,
 			CreatedAt:  time.Now(),
 		}, {
 			ID:         3,
 			Payload:    `{"name": "John Doe"}`,
 			DriverName: "grpc",
-			State:      OutboxStateSucceed,
+			State:      dto.OutboxStateSucceed,
 			CreatedAt:  time.Now(),
 		},
 	}

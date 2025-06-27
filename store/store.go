@@ -2,10 +2,8 @@ package store
 
 import (
 	"context"
-	"sync"
-	"time"
-
 	"github.com/ghaninia/gbox/dto"
+	"sync"
 )
 
 var (
@@ -20,47 +18,24 @@ type Setting struct {
 	NodeID     int
 	DriverName string
 	BulkSize   int
-	FlushTimer time.Duration
 }
-
-type Outbox struct {
-	ID               int64           `gorm:"id" db:"id" json:"id"`
-	DriverName       string          `gorm:"driver_name" db:"driver_name" json:"driver_name"`
-	Payload          string          `gorm:"payload" db:"payload" json:"payload"`
-	State            OutboxStateEnum `gorm:"state" db:"state" json:"state"`
-	CreatedAt        time.Time       `gorm:"created_at" db:"created_at" json:"created_at"`
-	LockedAt         *time.Time      `gorm:"locked_at" db:"locked_at" json:"locked_at"`
-	LockedBy         *string         `gorm:"locked_by" db:"locked_by" json:"locked_by"`
-	LastAttemptedAt  *time.Time      `gorm:"last_attempted_at" db:"last_attempted_at" json:"last_attempted_at"`
-	NumberOfAttempts *int64          `gorm:"number_of_attempts" db:"number_of_attempts" json:"number_of_attempts"`
-	Error            *string         `gorm:"error" db:"error" json:"error"`
-}
-
-type OutboxStateEnum string
-
-const (
-	OutboxStatePending    OutboxStateEnum = "PENDING"
-	OutboxStateInProgress OutboxStateEnum = "IN-PROGRESS"
-	OutboxStateSucceed    OutboxStateEnum = "SUCCEED"
-	OutboxStateFailed     OutboxStateEnum = "FAILED"
-)
 
 type IRepository interface {
 	GetTableName() string
-	NewRecords(ctx context.Context, records []Outbox) error
+	NewRecords(ctx context.Context, records []dto.Outbox) error
 }
 
 type IStore interface {
-	Add(ctx context.Context, msgs ...dto.NewMessage) error
+	Add(ctx context.Context, driverName string, messages ...dto.NewMessage) error
 }
 
 type Store struct {
 	setting    Setting
 	repo       IRepository
 	muMessages sync.Mutex
-	messages   []Outbox
-	afterSave  func(messages []Outbox) error
-	beforeSave func(messages []Outbox) error
+	messages   []dto.Outbox
+	afterSave  func(ctx context.Context, messages []dto.Outbox) error
+	beforeSave func(ctx context.Context, messages []dto.Outbox) error
 }
 
 // NewStore creates a new store instance with the provided repository and settings.
@@ -78,7 +53,44 @@ func NewStore(repo IRepository, settings ...Setting) IStore {
 	}
 }
 
-func (s Store) Add(ctx context.Context, msgs ...dto.NewMessage) error {
-	//TODO implement me
-	panic("implement me")
+// Add adds new messages to the outbox store.
+// It maps the NewMessage to Outbox messages, checks if the bulk size is reached,
+func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewMessage) error {
+
+	s.muMessages.Lock()
+	defer s.muMessages.Unlock()
+
+	if len(messages) == 0 {
+		return nil
+	}
+
+	// map NewMessage to Outbox messages
+	for _, msg := range messages {
+		outboxMessage := msg.ToOutBox(int64(len(s.messages)+1), driverName)
+		s.messages = append(s.messages, outboxMessage)
+	}
+
+	// if a beforeSave function is defined, call it
+	if s.beforeSave != nil {
+		if err := s.beforeSave(ctx, s.messages); err != nil {
+			return err
+		}
+	}
+
+	// check if the number of messages has reached the bulk size
+	if len(s.messages) >= s.setting.BulkSize {
+		if err := s.repo.NewRecords(ctx, s.messages); err != nil {
+			return err
+		}
+		if s.afterSave != nil {
+			if err := s.afterSave(ctx, s.messages); err != nil {
+				return err
+			}
+		}
+		s.messages = []dto.Outbox{}
+	} else {
+		return nil
+	}
+
+	return nil
 }

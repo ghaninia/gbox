@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/ghaninia/gbox/dto"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ func TestOutboxRedisRepository_NewRecords(t *testing.T) {
 		return
 	}
 
-	err = repo.NewRecords(context.Background(), []Outbox{
+	err = repo.NewRecords(context.Background(), []dto.Outbox{
 		{ID: 1, Payload: "Hello, World!"},
 		{ID: 2, Payload: "Hello, Universe!"},
 	})
