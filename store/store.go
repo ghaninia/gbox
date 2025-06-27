@@ -32,6 +32,9 @@ type IRepository interface {
 type IStore interface {
 	Add(ctx context.Context, driverName string, messages ...dto.NewMessage) error
 	AutoCommit(ctx context.Context) error
+	SetBeforeSaveBatch(f func(ctx context.Context, messages []dto.Outbox) error)
+	SetAfterSaveBatch(f func(ctx context.Context, messages []dto.Outbox) error)
+	Messages() []dto.Outbox
 }
 
 type Store struct {
@@ -45,7 +48,6 @@ type Store struct {
 }
 
 // NewStore creates a new store instance with the provided repository and settings.
-// If no settings are provided, the default settings are used.
 func NewStore(repo IRepository, settings ...Setting) IStore {
 	var s = func() Setting {
 		if len(settings) > 0 {
@@ -60,7 +62,6 @@ func NewStore(repo IRepository, settings ...Setting) IStore {
 }
 
 // Add adds new messages to the outbox store.
-// It uses a mutex to ensure that the messages are saved in a thread-safe manner.
 func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewMessage) error {
 	s.muMessages.Lock()
 	defer s.muMessages.Unlock()
@@ -105,10 +106,6 @@ func (s *Store) saveMessages(ctx context.Context, messages []dto.Outbox) error {
 }
 
 // AutoCommit starts a ticker that periodically saves the messages in the outbox store.
-// It uses an error group to handle context cancellation and ensure that messages are saved before stopping the ticker.
-// It also ensures that messages are saved in a thread-safe manner using a mutex.
-// The ticker interval is set based on the setting provided in the store.
-// If the context is done, it saves any remaining messages before stopping the ticker.
 func (s *Store) AutoCommit(ctx context.Context) error {
 	s.ticker = time.NewTicker(s.setting.IntervalTicker)
 	for {
@@ -146,4 +143,21 @@ func (s *Store) AutoCommit(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// SetBeforeSaveBatch sets a function to be called before saving a batch of messages.
+func (s *Store) SetBeforeSaveBatch(f func(ctx context.Context, messages []dto.Outbox) error) {
+	s.beforeSaveBatch = f
+}
+
+// SetAfterSaveBatch sets a function to be called after saving a batch of messages.
+func (s *Store) SetAfterSaveBatch(f func(ctx context.Context, messages []dto.Outbox) error) {
+	s.afterSaveBatch = f
+}
+
+// Messages returns the current messages in the outbox store.
+func (s *Store) Messages() []dto.Outbox {
+	s.muMessages.Lock()
+	defer s.muMessages.Unlock()
+	return s.messages
 }
