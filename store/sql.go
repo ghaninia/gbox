@@ -19,10 +19,12 @@ func NewOutboxSqlRepository(setting RepoSetting, instance *sql.DB) IRepository {
 	}
 }
 
+// GetTableName get a key name for table
 func (o outboxSqlRepository) GetTableName() string {
 	return o.setting.TableName
 }
 
+// NewRecords insert new records to outbox table
 func (o outboxSqlRepository) NewRecords(ctx context.Context, records []dto.Outbox) error {
 
 	tx, err := o.instance.Begin()
