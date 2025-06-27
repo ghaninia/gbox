@@ -39,7 +39,7 @@ var (
 func upSeeder() []string {
 	return []string{
 		`CREATE TABLE outbox (
-			id SERIAL PRIMARY KEY,
+			id BIGINT PRIMARY KEY,
 			driver_name VARCHAR(255) NOT NULL,
 			payload TEXT NOT NULL,
 			state VARCHAR(255) NOT NULL,

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"golang.org/x/sync/errgroup"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -65,12 +66,8 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 	s.muMessages.Lock()
 	defer s.muMessages.Unlock()
 
-	if len(messages) == 0 {
-		return nil
-	}
-
 	for _, msg := range messages {
-		var snowflakeID int64
+		var snowflakeID int64 = rand.Int63()
 		outboxMessage := msg.ToOutBox(snowflakeID, driverName)
 		s.messages = append(s.messages, outboxMessage)
 

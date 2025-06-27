@@ -10,7 +10,7 @@ services:
       TZ: "Asia/Tehran"
       POSTGRES_USER: gbox
       POSTGRES_PASSWORD: gbox
-      POSTGRES_DB: postgres
+      POSTGRES_DB: gbox
     ports:
       - "5432:5432"
     volumes:
