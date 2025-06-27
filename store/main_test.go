@@ -40,8 +40,8 @@ func upSeeder() []string {
 	return []string{
 		`CREATE TABLE outbox (
 			id SERIAL PRIMARY KEY,
-			payload TEXT NOT NULL,
 			driver_name VARCHAR(255) NOT NULL,
+			payload TEXT NOT NULL,
 			state VARCHAR(255) NOT NULL,
 			created_at TIMESTAMP NOT NULL,
 			locked_at TIMESTAMP,
