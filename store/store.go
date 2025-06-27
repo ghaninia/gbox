@@ -60,9 +60,8 @@ func NewStore(repo IRepository, settings ...Setting) IStore {
 }
 
 // Add adds new messages to the outbox store.
-// It maps the NewMessage to Outbox messages, checks if the bulk size is reached,
+// It uses a mutex to ensure that the messages are saved in a thread-safe manner.
 func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewMessage) error {
-
 	s.muMessages.Lock()
 	defer s.muMessages.Unlock()
 
@@ -70,38 +69,47 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 		return nil
 	}
 
-	// map NewMessage to Outbox messages
 	for _, msg := range messages {
-		outboxMessage := msg.ToOutBox(int64(len(s.messages)+1), driverName)
+		var snowflakeID int64
+		outboxMessage := msg.ToOutBox(snowflakeID, driverName)
 		s.messages = append(s.messages, outboxMessage)
-	}
 
-	// if a beforeSaveBatch function is defined, call it
-	if s.beforeSaveBatch != nil {
-		if err := s.beforeSaveBatch(ctx, s.messages); err != nil {
-			return err
-		}
-	}
-
-	// check if the number of messages has reached the bulk size
-	if len(s.messages) >= s.setting.BulkSize {
-		if err := s.repo.NewRecords(ctx, s.messages); err != nil {
-			return err
-		}
-		if s.afterSaveBatch != nil {
-			if err := s.afterSaveBatch(ctx, s.messages); err != nil {
+		// check if the number of messages has reached the bulk size
+		if len(s.messages) >= s.setting.BulkSize {
+			if err := s.saveMessages(ctx, s.messages); err != nil {
 				return err
 			}
+			// reset messages after saving
+			s.messages = []dto.Outbox{}
 		}
-		s.messages = []dto.Outbox{}
-	} else {
-		return nil
 	}
 
 	return nil
 }
 
+// saveMessages saves the messages in the outbox store.
+func (s *Store) saveMessages(ctx context.Context, messages []dto.Outbox) error {
+	if s.beforeSaveBatch != nil {
+		if err := s.beforeSaveBatch(ctx, messages); err != nil {
+			return err
+		}
+	}
+	if err := s.repo.NewRecords(ctx, messages); err != nil {
+		return err
+	}
+	if s.afterSaveBatch != nil {
+		if err := s.afterSaveBatch(ctx, messages); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // AutoCommit starts a ticker that periodically saves the messages in the outbox store.
+// It uses an error group to handle context cancellation and ensure that messages are saved before stopping the ticker.
+// It also ensures that messages are saved in a thread-safe manner using a mutex.
+// The ticker interval is set based on the setting provided in the store.
+// If the context is done, it saves any remaining messages before stopping the ticker.
 func (s *Store) AutoCommit(ctx context.Context) error {
 	s.ticker = time.NewTicker(s.setting.IntervalTicker)
 
@@ -111,23 +119,34 @@ func (s *Store) AutoCommit(ctx context.Context) error {
 		for {
 			select {
 			case _ = <-ctx.Done():
+				{
+					s.muMessages.Lock()
+					if err := s.saveMessages(ctx, s.messages); err != nil {
+						s.muMessages.Unlock()
+						return err
+					}
+					s.messages = []dto.Outbox{}
+					s.muMessages.Unlock()
+					s.ticker.Stop()
+					return nil
+				}
 			case _ = <-s.ticker.C:
-				s.muMessages.Lock()
-				if s.beforeSaveBatch != nil {
-					if err := s.beforeSaveBatch(ctx, s.messages); err != nil {
+				{
+					s.muMessages.Lock()
+					if len(s.messages) == 0 {
+						s.muMessages.Unlock()
+						continue
+					}
+
+					if err := s.saveMessages(ctx, s.messages); err != nil {
+						s.muMessages.Unlock()
 						return err
 					}
+
+					// reset messages after saving
+					s.messages = []dto.Outbox{}
+					s.muMessages.Unlock()
 				}
-				if err := s.repo.NewRecords(ctx, s.messages); err != nil {
-					return err
-				}
-				if s.afterSaveBatch != nil {
-					if err := s.afterSaveBatch(ctx, s.messages); err != nil {
-						return err
-					}
-				}
-				s.messages = []dto.Outbox{}
-				s.muMessages.Unlock()
 			}
 		}
 	})
