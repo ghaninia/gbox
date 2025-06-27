@@ -109,6 +109,9 @@ func (s *Store) saveMessages(ctx context.Context, messages []dto.Outbox) (err er
 				break
 			}
 		}
+		if err != nil {
+			return err
+		}
 	}
 	if s.afterSaveBatch != nil {
 		if err = s.afterSaveBatch(ctx, messages); err != nil {
