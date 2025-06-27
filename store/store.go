@@ -2,8 +2,11 @@ package store
 
 import (
 	"context"
-	"github.com/ghaninia/gbox/dto"
+	"golang.org/x/sync/errgroup"
 	"sync"
+	"time"
+
+	"github.com/ghaninia/gbox/dto"
 )
 
 var (
@@ -15,9 +18,10 @@ type RepoSetting struct {
 }
 
 type Setting struct {
-	NodeID     int
-	DriverName string
-	BulkSize   int
+	NodeID         int
+	DriverName     string
+	BulkSize       int
+	IntervalTicker time.Duration
 }
 
 type IRepository interface {
@@ -27,15 +31,17 @@ type IRepository interface {
 
 type IStore interface {
 	Add(ctx context.Context, driverName string, messages ...dto.NewMessage) error
+	AutoCommit(ctx context.Context) error
 }
 
 type Store struct {
-	setting    Setting
-	repo       IRepository
-	muMessages sync.Mutex
-	messages   []dto.Outbox
-	afterSave  func(ctx context.Context, messages []dto.Outbox) error
-	beforeSave func(ctx context.Context, messages []dto.Outbox) error
+	setting         Setting
+	repo            IRepository
+	muMessages      sync.Mutex
+	ticker          *time.Ticker
+	messages        []dto.Outbox
+	afterSaveBatch  func(ctx context.Context, messages []dto.Outbox) error
+	beforeSaveBatch func(ctx context.Context, messages []dto.Outbox) error
 }
 
 // NewStore creates a new store instance with the provided repository and settings.
@@ -70,9 +76,9 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 		s.messages = append(s.messages, outboxMessage)
 	}
 
-	// if a beforeSave function is defined, call it
-	if s.beforeSave != nil {
-		if err := s.beforeSave(ctx, s.messages); err != nil {
+	// if a beforeSaveBatch function is defined, call it
+	if s.beforeSaveBatch != nil {
+		if err := s.beforeSaveBatch(ctx, s.messages); err != nil {
 			return err
 		}
 	}
@@ -82,8 +88,8 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 		if err := s.repo.NewRecords(ctx, s.messages); err != nil {
 			return err
 		}
-		if s.afterSave != nil {
-			if err := s.afterSave(ctx, s.messages); err != nil {
+		if s.afterSaveBatch != nil {
+			if err := s.afterSaveBatch(ctx, s.messages); err != nil {
 				return err
 			}
 		}
@@ -93,4 +99,38 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 	}
 
 	return nil
+}
+
+// AutoCommit starts a ticker that periodically saves the messages in the outbox store.
+func (s *Store) AutoCommit(ctx context.Context) error {
+	s.ticker = time.NewTicker(s.setting.IntervalTicker)
+
+	group, ctx := errgroup.WithContext(ctx)
+
+	group.Go(func() error {
+		for {
+			select {
+			case _ = <-ctx.Done():
+			case _ = <-s.ticker.C:
+				s.muMessages.Lock()
+				if s.beforeSaveBatch != nil {
+					if err := s.beforeSaveBatch(ctx, s.messages); err != nil {
+						return err
+					}
+				}
+				if err := s.repo.NewRecords(ctx, s.messages); err != nil {
+					return err
+				}
+				if s.afterSaveBatch != nil {
+					if err := s.afterSaveBatch(ctx, s.messages); err != nil {
+						return err
+					}
+				}
+				s.messages = []dto.Outbox{}
+				s.muMessages.Unlock()
+			}
+		}
+	})
+
+	return group.Wait()
 }
