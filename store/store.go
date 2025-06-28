@@ -20,13 +20,14 @@ type RepoSetting struct {
 }
 
 type Setting struct {
-	NodeID            int
-	DriverName        string
-	MaxBatchSize      int
-	IntervalTicker    time.Duration
-	BackoffEnabled    bool
-	BackoffMaxRetries int
-	BackoffDelay      time.Duration
+	NodeID             int
+	DriverName         string
+	BatchInsertEnabled bool
+	MaxBatchSize       int
+	IntervalTicker     time.Duration
+	BackoffEnabled     bool
+	BackoffMaxRetries  int
+	BackoffDelay       time.Duration
 }
 
 type IRepository interface {
@@ -77,6 +78,14 @@ func (s *Store) Add(ctx context.Context, driverName string, messages ...dto.NewM
 		var snowflakeID int64 = rand.Int63()
 
 		outboxMessage := msg.ToOutBox(snowflakeID, driverName)
+
+		if !s.setting.BatchInsertEnabled {
+			if err := s.saveMessages(ctx, s.messages); err != nil {
+				return err
+			}
+			break
+		}
+
 		s.messages = append(s.messages, outboxMessage)
 
 		// check if the number of messages has reached the bulk size
