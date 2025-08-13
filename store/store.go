@@ -33,6 +33,7 @@ type Setting struct {
 type IRepository interface {
 	GetTableName() string
 	NewRecords(ctx context.Context, records []dto.Outbox) error
+	FetchMessages(ctx context.Context, limit int) ([]dto.Outbox, error)
 }
 
 type IStore interface {
@@ -41,6 +42,8 @@ type IStore interface {
 	SetBeforeSaveBatch(f func(ctx context.Context, messages []dto.Outbox) error)
 	SetAfterSaveBatch(f func(ctx context.Context, messages []dto.Outbox) error)
 	Messages() []dto.Outbox
+	FetchMessages(ctx context.Context, limit int) ([]dto.Outbox, error)
+	MarkAsProcessed(ctx context.Context, id int64) error
 }
 
 type Store struct {
@@ -185,4 +188,13 @@ func (s *Store) Messages() []dto.Outbox {
 	s.muMessages.Lock()
 	defer s.muMessages.Unlock()
 	return s.messages
+}
+
+// FetchMessages fetches messages from the repository with a limit.
+func (s *Store) FetchMessages(ctx context.Context, limit int) ([]dto.Outbox, error) {
+	return s.repo.FetchMessages(ctx, limit)
+}
+
+func (s *Store) MarkAsProcessed(ctx context.Context, id int64) error {
+	panic("implement me")
 }

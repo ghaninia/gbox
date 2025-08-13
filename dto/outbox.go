@@ -18,7 +18,7 @@ type OutboxStateEnum string
 
 const (
 	OutboxStatePending    OutboxStateEnum = "PENDING"
-	OutboxStateInProgress OutboxStateEnum = "IN-PROGRESS"
+	OutboxStateInProgress OutboxStateEnum = "IN_PROGRESS"
 	OutboxStateSucceed    OutboxStateEnum = "SUCCEED"
 	OutboxStateFailed     OutboxStateEnum = "FAILED"
 )

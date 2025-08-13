@@ -2,6 +2,7 @@ package poller
 
 import (
 	"context"
+	"sync"
 
 	"github.com/ghaninia/gbox/dto"
 )
@@ -19,6 +20,7 @@ type IProviders interface {
 }
 
 type providers struct {
+	sync.RWMutex
 	providers map[string]IProvider
 }
 
@@ -30,21 +32,25 @@ func NewProviders() IProviders {
 
 // AddProvider adds a new provider to the collection.
 func (p *providers) AddProvider(provider IProvider) IProviders {
+	p.Lock()
+	defer p.Unlock()
 	p.providers[provider.DriverName()] = provider
 	return p
 }
 
 // Providers returns a slice of all registered providers.
 func (p *providers) Providers() []IProvider {
-	var list []IProvider
+	var listWithoutKey []IProvider
 	for _, provider := range p.providers {
-		list = append(list, provider)
+		listWithoutKey = append(listWithoutKey, provider)
 	}
-	return list
+	return listWithoutKey
 }
 
 // GetProvider retrieves a provider by its name.
 func (p *providers) GetProvider(name string) IProvider {
+	p.Lock()
+	defer p.Unlock()
 	if provider, exists := p.providers[name]; exists {
 		return provider
 	}
